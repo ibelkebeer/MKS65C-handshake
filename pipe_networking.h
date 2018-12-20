@@ -7,6 +7,7 @@
 #include <string.h>
 #include <errno.h>
 #include <math.h>
+#include <signal.h>
 #include <inttypes.h>
 
 

@@ -1,4 +1,3 @@
-#include <signal.h>
 #include "pipe_networking.h"
 #include "sieve.c"
 
