@@ -1,6 +1,15 @@
 #include "pipe_networking.h"
 #include "sieve.c"
 
+#define KEY 0xBEEFDEAD
+
+union semun {
+  int              val;    /* Value for SETVAL */
+  struct semid_ds *buf;    /* Buffer for IPC_STAT, IPC_SET */
+  unsigned short  *array;  /* Array for GETALL, SETALL */
+  struct seminfo  *__buf;  /* Buffer for IPC_INFO */
+};
+
 /*=========================
   server_handshake
   args: int * to_client
@@ -9,68 +18,87 @@
   returns the file descriptor for the upstream pipe.
   =========================*/
 int server_handshake(int *to_client) {
-  if(mkfifo(ACK, 0666) == -1){
-    printf("ERROR: %s\n", strerror(errno));
-    exit(1);
-  }
-  printf("WKP made\n");
-  int fifo = open(ACK, O_RDONLY);
-  char name[256];
-  if(read(fifo, name, 256) == -1){
-    printf("ERROR: %s\n", strerror(errno));
-    exit(1);
-  }
-  printf("Got private pipe name: %s\n", name);
-  int upstream = fifo;
-  close(fifo);
-  fifo = open(name, O_WRONLY);
-  if(fifo == -1){
-    printf("ERROR: %s\n", strerror(errno));
-    exit(1);
-  }
-  printf("Connected to private pipe\n");
-  *to_client = fifo;
-  if(write(fifo, "I gotchu", strlen("I gotchu")) == -1){
-    printf("ERROR: %s\n", strerror(errno));
-    exit(1);
-  }
-  close(fifo);
-  fifo = open(name, O_RDONLY);
-  char message[256];
-  if(read(fifo, message, 256) == -1){
-    printf("ERROR: %s\n", strerror(errno));
-    exit(1);
-  }
-  printf("Got message from client: %s\n", message);
-  printf("Handshake Complete\n");
-  unlink(ACK);
-
   while(1){
-    if(read(fifo, message, 256) == -1){
+    if(mkfifo(ACK, 0666) == -1){
       printf("ERROR: %s\n", strerror(errno));
       exit(1);
     }
+    int semid = semget(KEY, 1, IPC_CREAT | 0666);
+    if (semid == -1) {
+      printf("Error: %s\n", strerror(errno));
+      exit(1);
+    }
+    printf("WKP made\n");
+    int val = semctl(semid, 0, GETVAL, 0);
+    if( val >= 1 ){
+      printf("Another client is connecting to the server, please wait\n");
+      while( val = semctl(semid, 0, GETVAL, 0) );
+    }
+    union semun us;
+    us.val = 1;
+    semctl(semid, 0, SETVAL, us);
+    int fifo = open(ACK, O_RDONLY);
+    char name[256];
+    if(read(fifo, name, 256) == -1){
+      printf("ERROR: %s\n", strerror(errno));
+      exit(1);
+    }
+    printf("Got private pipe name: %s\n", name);
+    int upstream = fifo;
     close(fifo);
-    char* ptr;
-    int num = strtol(message, &ptr, 10);
-    printf("Calculating prime #%d\n", num);
-    num = sieve(num);
-    char output[256];
-    sprintf(output, "%d", num);
     fifo = open(name, O_WRONLY);
     if(fifo == -1){
       printf("ERROR: %s\n", strerror(errno));
       exit(1);
     }
-    if(write(fifo, output, strlen(output) + 1) == -1){
+    printf("Connected to private pipe\n");
+    *to_client = fifo;
+    if(write(fifo, "I gotchu", strlen("I gotchu")) == -1){
       printf("ERROR: %s\n", strerror(errno));
       exit(1);
     }
     close(fifo);
     fifo = open(name, O_RDONLY);
-  }
+    char message[256];
+    if(read(fifo, message, 256) == -1){
+      printf("ERROR: %s\n", strerror(errno));
+      exit(1);
+    }
+    printf("Got message from client: %s\n", message);
+    printf("Handshake Complete\n");
+    unlink(ACK);
+    us.val = 0;
+    semctl(semid, 0, SETVAL, us);
 
-  return upstream;
+    int f = fork();
+    if(!f){
+      while(1){
+        if(read(fifo, message, 256) == -1){
+          printf("ERROR: %s\n", strerror(errno));
+          exit(1);
+        }
+        close(fifo);
+        char* ptr;
+        int num = strtol(message, &ptr, 10);
+        printf("Calculating prime #%d\n", num);
+        num = sieve(num);
+        char output[256];
+        sprintf(output, "%d", num);
+        fifo = open(name, O_WRONLY);
+        if(fifo == -1){
+          printf("ERROR: %s\n", strerror(errno));
+          exit(1);
+        }
+        if(write(fifo, output, strlen(output) + 1) == -1){
+          printf("ERROR: %s\n", strerror(errno));
+          exit(1);
+        }
+        close(fifo);
+        fifo = open(name, O_RDONLY);
+      }
+      return upstream;
+    }
+  }
 }
 
 
