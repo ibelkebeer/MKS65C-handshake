@@ -10,7 +10,6 @@
   returns the file descriptor for the upstream pipe.
   =========================*/
 int server_handshake(int *to_client) {
-  unlink(ACK);
   if(mkfifo(ACK, 0666) == -1){
     printf("ERROR: %s\n", strerror(errno));
     exit(1);
@@ -37,18 +36,17 @@ int server_handshake(int *to_client) {
     exit(1);
   }
   close(fifo);
-  fifo = open(ACK, O_RDONLY);
+  fifo = open(name, O_RDONLY);
   char message[256];
   if(read(fifo, message, 256) == -1){
     printf("ERROR: %s\n", strerror(errno));
     exit(1);
   }
-  close(fifo);
   printf("Got message from client: %s\n", message);
   printf("Handshake Complete\n");
+  unlink(ACK);
 
   while(1){
-    fifo = open(ACK, O_RDONLY);
     if(read(fifo, message, 256) == -1){
       printf("ERROR: %s\n", strerror(errno));
       exit(1);
@@ -70,6 +68,7 @@ int server_handshake(int *to_client) {
       exit(1);
     }
     close(fifo);
+    fifo = open(name, O_RDONLY);
   }
 
   return upstream;
@@ -117,7 +116,7 @@ int client_handshake(int *to_server) {
   }
   printf("Got message from server: %s\n", message);
   close(fifo);
-  fifo = open(ACK, O_WRONLY);
+  fifo = open(name, O_WRONLY);
   if(write(fifo, "Ayo", strlen("Ayo")) == -1){
     printf("ERROR: %s\n", strerror(errno));
     exit(1);
@@ -129,7 +128,7 @@ int client_handshake(int *to_server) {
     char input[256];
     scanf("%[^\n]", input);
     getchar();
-    fifo = open(ACK, O_WRONLY);
+    fifo = open(name, O_WRONLY);
     if(write(fifo, input, strlen(input) + 1) == -1){
       printf("ERROR: %s\n", strerror(errno));
       exit(1);
