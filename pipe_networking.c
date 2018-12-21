@@ -23,20 +23,7 @@ int server_handshake(int *to_client) {
       printf("ERROR: %s\n", strerror(errno));
       exit(1);
     }
-    int semid = semget(KEY, 1, IPC_CREAT | 0666);
-    if (semid == -1) {
-      printf("Error: %s\n", strerror(errno));
-      exit(1);
-    }
     printf("WKP made\n");
-    int val = semctl(semid, 0, GETVAL, 0);
-    if( val >= 1 ){
-      printf("Another client is connecting to the server, please wait\n");
-      while( val = semctl(semid, 0, GETVAL, 0) );
-    }
-    union semun us;
-    us.val = 1;
-    semctl(semid, 0, SETVAL, us);
     int fifo = open(ACK, O_RDONLY);
     char name[256];
     if(read(fifo, name, 256) == -1){
@@ -67,8 +54,6 @@ int server_handshake(int *to_client) {
     printf("Got message from client: %s\n", message);
     printf("Handshake Complete\n");
     unlink(ACK);
-    us.val = 0;
-    semctl(semid, 0, SETVAL, us);
 
     int f = fork();
     if(!f){
