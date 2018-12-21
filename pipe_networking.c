@@ -1,7 +1,6 @@
 #include "pipe_networking.h"
 #include "sieve.c"
 
-
 /*=========================
   server_handshake
   args: int * to_client
