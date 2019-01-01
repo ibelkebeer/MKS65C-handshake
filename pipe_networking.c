@@ -52,7 +52,7 @@ int server_handshake(int *to_client) {
 
       char newname[10];
       sprintf(newname, "%d", getpid());
-      mkfifo(newname);
+      mkfifo(newname, 0666);
       fifo = open(name, O_WRONLY);
       if(fifo == -1){
         printf("ERROR: %s\n", strerror(errno));
