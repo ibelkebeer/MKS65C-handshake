@@ -3,6 +3,9 @@
 static void sighandler(int signo){
   if(signo == 2){
     unlink(ACK);
+    char newname[10];
+    sprintf(newname, "%d", getpid());
+    unlink(newname);
     exit(0);
   }
 }

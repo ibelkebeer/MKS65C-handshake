@@ -50,8 +50,22 @@ int server_handshake(int *to_client) {
     int f = fork();
     if(!f){
 
+      char newname[10];
+      sprintf(newname, "%d", getpid());
+      mkfifo(newname);
+      fifo = open(name, O_WRONLY);
+      if(fifo == -1){
+        printf("ERROR: %s\n", strerror(errno));
+        exit(1);
+      }
+      if(write(fifo, newname, strlen(newname)) == -1){
+        printf("ERROR: %s\n", strerror(errno));
+        exit(1);
+      }
+      close(fifo);
+
       while(1){
-        fifo = open(ACK, O_RDONLY);
+        fifo = open(newname, O_RDONLY);
         if(read(fifo, message, 256) == -1){
           printf("ERROR: %s\n", strerror(errno));
           exit(1);
@@ -128,13 +142,24 @@ int client_handshake(int *to_server) {
     exit(1);
   }
   printf("Handshake Complete\n");
+  fifo = open(name, O_RDONLY);
+  if(fifo == -1){
+    printf("ERROR: %s\n", strerror(errno));
+    exit(1);
+  }
+  char newname[10];
+  if(read(fifo, newname, 10) == -1){
+    printf("ERROR: %s\n", strerror(errno));
+    exit(1);
+  }
+  close(fifo);
 
   while(1){
     printf("Enter a number, n, to find the nth prime\n");
     char input[256];
     scanf("%[^\n]", input);
     getchar();
-    fifo = open(ACK, O_WRONLY);
+    fifo = open(newname, O_WRONLY);
     if(write(fifo, input, strlen(input) + 1) == -1){
       printf("ERROR: %s\n", strerror(errno));
       exit(1);
