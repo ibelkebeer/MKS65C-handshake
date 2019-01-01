@@ -77,7 +77,7 @@ int server_handshake(int *to_client) {
 
     }
   }
-  return upstream;
+  return 0;
 }
 
 
