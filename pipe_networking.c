@@ -25,6 +25,7 @@ int server_handshake(int *to_client) {
   int upstream = fifo;
   close(fifo);
   fifo = open(name, O_WRONLY);
+  printf("%d\n", fifo);
   if(fifo == -1){
     printf("ERROR: %s\n", strerror(errno));
     exit(1);
