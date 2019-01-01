@@ -9,68 +9,74 @@
   returns the file descriptor for the upstream pipe.
   =========================*/
 int server_handshake(int *to_client) {
-  unlink(ACK);
-  if(mkfifo(ACK, 0666) == -1){
-    printf("ERROR: %s\n", strerror(errno));
-    exit(1);
-  }
-  printf("WKP made\n");
-  int fifo = open(ACK, O_RDONLY);
-  char name[10];
-  if(read(fifo, name, 256) == -1){
-    printf("ERROR: %s\n", strerror(errno));
-    exit(1);
-  }
-  printf("Got private pipe name: %s\n", name);
-  int upstream = fifo;
-  close(fifo);
-  fifo = open(name, O_WRONLY);
-  if(fifo == -1){
-    printf("ERROR: %s\n", strerror(errno));
-    exit(1);
-  }
-  printf("Connected to private pipe\n");
-  *to_client = fifo;
-  if(write(fifo, "I gotchu", strlen("I gotchu")) == -1){
-    printf("ERROR: %s\n", strerror(errno));
-    exit(1);
-  }
-  close(fifo);
-  fifo = open(ACK, O_RDONLY);
-  char message[256];
-  if(read(fifo, message, 256) == -1){
-    printf("ERROR: %s\n", strerror(errno));
-    exit(1);
-  }
-  close(fifo);
-  printf("Got message from client: %s\n", message);
-  printf("Handshake Complete\n");
-
   while(1){
-    fifo = open(ACK, O_RDONLY);
-    if(read(fifo, message, 256) == -1){
+    unlink(ACK);
+    if(mkfifo(ACK, 0666) == -1){
       printf("ERROR: %s\n", strerror(errno));
       exit(1);
     }
+    printf("WKP made\n");
+    int fifo = open(ACK, O_RDONLY);
+    char name[10];
+    if(read(fifo, name, 256) == -1){
+      printf("ERROR: %s\n", strerror(errno));
+      exit(1);
+    }
+    printf("Got private pipe name: %s\n", name);
+    int upstream = fifo;
     close(fifo);
-    char* ptr;
-    int num = strtol(message, &ptr, 10);
-    printf("Calculating prime #%d\n", num);
-    num = sieve(num);
-    char output[256];
-    sprintf(output, "%d", num);
     fifo = open(name, O_WRONLY);
     if(fifo == -1){
       printf("ERROR: %s\n", strerror(errno));
       exit(1);
     }
-    if(write(fifo, output, strlen(output) + 1) == -1){
+    printf("Connected to private pipe\n");
+    *to_client = fifo;
+    if(write(fifo, "I gotchu", strlen("I gotchu")) == -1){
       printf("ERROR: %s\n", strerror(errno));
       exit(1);
     }
     close(fifo);
-  }
+    fifo = open(ACK, O_RDONLY);
+    char message[256];
+    if(read(fifo, message, 256) == -1){
+      printf("ERROR: %s\n", strerror(errno));
+      exit(1);
+    }
+    close(fifo);
+    printf("Got message from client: %s\n", message);
+    printf("Handshake Complete\n");
 
+    int f = fork();
+    if(!f){
+
+      while(1){
+        fifo = open(ACK, O_RDONLY);
+        if(read(fifo, message, 256) == -1){
+          printf("ERROR: %s\n", strerror(errno));
+          exit(1);
+        }
+        close(fifo);
+        char* ptr;
+        int num = strtol(message, &ptr, 10);
+        printf("Calculating prime #%d\n", num);
+        num = sieve(num);
+        char output[256];
+        sprintf(output, "%d", num);
+        fifo = open(name, O_WRONLY);
+        if(fifo == -1){
+          printf("ERROR: %s\n", strerror(errno));
+          exit(1);
+        }
+        if(write(fifo, output, strlen(output) + 1) == -1){
+          printf("ERROR: %s\n", strerror(errno));
+          exit(1);
+        }
+        close(fifo);
+      }
+
+    }
+  }
   return upstream;
 }
 
