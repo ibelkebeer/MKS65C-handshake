@@ -16,7 +16,7 @@ int server_handshake(int *to_client) {
   }
   printf("WKP made\n");
   int fifo = open(ACK, O_RDONLY);
-  char name[256];
+  char name[10];
   if(read(fifo, name, 256) == -1){
     printf("ERROR: %s\n", strerror(errno));
     exit(1);
