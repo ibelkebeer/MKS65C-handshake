@@ -86,7 +86,7 @@ int client_handshake(int *to_server) {
   char name[10];
   sprintf(name, "%s", getpid());
   if(mkfifo(name, 0666) == -1){
-    printf("ERROR: %s\n", strerror(errno));
+    printf("ERROR: %d\n", strerror(errno));
     exit(1);
   }
   printf("Created private pipe\n");
