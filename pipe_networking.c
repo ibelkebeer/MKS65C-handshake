@@ -83,8 +83,8 @@ int server_handshake(int *to_client) {
   returns the file descriptor for the downstream pipe.
   =========================*/
 int client_handshake(int *to_server) {
-  char* name = "private";
-  unlink(name);
+  char name[10];
+  sprintf(name, "%d", getpid());
   if(mkfifo(name, 0666) == -1){
     printf("ERROR: %s\n", strerror(errno));
     exit(1);

@@ -2,7 +2,9 @@
 
 static void sighandler(int signo){
   if(signo == 2){
-    unlink("private");
+    char name[10];
+    sprintf(name, "%d", getpid());
+    unlink(name);
     exit(1);
   }
 }
