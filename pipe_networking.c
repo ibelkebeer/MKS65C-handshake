@@ -84,7 +84,7 @@ int server_handshake(int *to_client) {
   =========================*/
 int client_handshake(int *to_server) {
   char name[10];
-  sprintf(name, "%d", getpid());
+  sprintf(name, "%s", getpid());
   if(mkfifo(name, 0666) == -1){
     printf("ERROR: %s\n", strerror(errno));
     exit(1);
