@@ -1,15 +1,6 @@
 #include "pipe_networking.h"
 #include "sieve.c"
 
-#define KEY 0xBEEFDEAD
-
-union semun {
-  int              val;    /* Value for SETVAL */
-  struct semid_ds *buf;    /* Buffer for IPC_STAT, IPC_SET */
-  unsigned short  *array;  /* Array for GETALL, SETALL */
-  struct seminfo  *__buf;  /* Buffer for IPC_INFO */
-};
-
 /*=========================
   server_handshake
   args: int * to_client
@@ -18,72 +9,69 @@ union semun {
   returns the file descriptor for the upstream pipe.
   =========================*/
 int server_handshake(int *to_client) {
+  unlink(ACK);
+  if(mkfifo(ACK, 0666) == -1){
+    printf("ERROR: %s\n", strerror(errno));
+    exit(1);
+  }
+  printf("WKP made\n");
+  int fifo = open(ACK, O_RDONLY);
+  char name[256];
+  if(read(fifo, name, 256) == -1){
+    printf("ERROR: %s\n", strerror(errno));
+    exit(1);
+  }
+  printf("Got private pipe name: %s\n", name);
+  int upstream = fifo;
+  close(fifo);
+  fifo = open(name, O_WRONLY);
+  if(fifo == -1){
+    printf("ERROR: %s\n", strerror(errno));
+    exit(1);
+  }
+  printf("Connected to private pipe\n");
+  *to_client = fifo;
+  if(write(fifo, "I gotchu", strlen("I gotchu")) == -1){
+    printf("ERROR: %s\n", strerror(errno));
+    exit(1);
+  }
+  close(fifo);
+  fifo = open(ACK, O_RDONLY);
+  char message[256];
+  if(read(fifo, message, 256) == -1){
+    printf("ERROR: %s\n", strerror(errno));
+    exit(1);
+  }
+  close(fifo);
+  printf("Got message from client: %s\n", message);
+  printf("Handshake Complete\n");
+
   while(1){
-    if(mkfifo(ACK, 0666) == -1){
+    fifo = open(ACK, O_RDONLY);
+    if(read(fifo, message, 256) == -1){
       printf("ERROR: %s\n", strerror(errno));
       exit(1);
     }
-    printf("WKP made\n");
-    int fifo = open(ACK, O_RDONLY);
-    char name[256];
-    if(read(fifo, name, 256) == -1){
-      printf("ERROR: %s\n", strerror(errno));
-      exit(1);
-    }
-    printf("Got private pipe name: %s\n", name);
-    int upstream = fifo;
     close(fifo);
+    char* ptr;
+    int num = strtol(message, &ptr, 10);
+    printf("Calculating prime #%d\n", num);
+    num = sieve(num);
+    char output[256];
+    sprintf(output, "%d", num);
     fifo = open(name, O_WRONLY);
     if(fifo == -1){
       printf("ERROR: %s\n", strerror(errno));
       exit(1);
     }
-    printf("Connected to private pipe\n");
-    *to_client = fifo;
-    if(write(fifo, "I gotchu", strlen("I gotchu")) == -1){
+    if(write(fifo, output, strlen(output) + 1) == -1){
       printf("ERROR: %s\n", strerror(errno));
       exit(1);
     }
     close(fifo);
-    fifo = open(name, O_RDONLY);
-    char message[256];
-    if(read(fifo, message, 256) == -1){
-      printf("ERROR: %s\n", strerror(errno));
-      exit(1);
-    }
-    printf("Got message from client: %s\n", message);
-    printf("Handshake Complete\n");
-    unlink(ACK);
-
-    int f = fork();
-    if(!f){
-      while(1){
-        if(read(fifo, message, 256) == -1){
-          printf("ERROR: %s\n", strerror(errno));
-          exit(1);
-        }
-        close(fifo);
-        char* ptr;
-        int num = strtol(message, &ptr, 10);
-        printf("Calculating prime #%d\n", num);
-        num = sieve(num);
-        char output[256];
-        sprintf(output, "%d", num);
-        fifo = open(name, O_WRONLY);
-        if(fifo == -1){
-          printf("ERROR: %s\n", strerror(errno));
-          exit(1);
-        }
-        if(write(fifo, output, strlen(output) + 1) == -1){
-          printf("ERROR: %s\n", strerror(errno));
-          exit(1);
-        }
-        close(fifo);
-        fifo = open(name, O_RDONLY);
-      }
-      return upstream;
-    }
   }
+
+  return upstream;
 }
 
 
@@ -128,7 +116,7 @@ int client_handshake(int *to_server) {
   }
   printf("Got message from server: %s\n", message);
   close(fifo);
-  fifo = open(name, O_WRONLY);
+  fifo = open(ACK, O_WRONLY);
   if(write(fifo, "Ayo", strlen("Ayo")) == -1){
     printf("ERROR: %s\n", strerror(errno));
     exit(1);
@@ -140,7 +128,7 @@ int client_handshake(int *to_server) {
     char input[256];
     scanf("%[^\n]", input);
     getchar();
-    fifo = open(name, O_WRONLY);
+    fifo = open(ACK, O_WRONLY);
     if(write(fifo, input, strlen(input) + 1) == -1){
       printf("ERROR: %s\n", strerror(errno));
       exit(1);
